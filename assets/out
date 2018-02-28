@@ -14,10 +14,35 @@ if [ -z "$source" ]; then
 fi
 
 payload=$(mktemp $TMPDIR/credhub-schema-resource-request.XXXXXX)
+schema=$(mktemp $TMPDIR/credhub-schema-resource-schema.XXXXXX)
+doc=$(mktemp $TMPDIR/credhub-schema-resource-doc.XXXXXX)
 
 cat > $payload <&0
 
-jq -n "{
-  version: {ref: $(git rev-parse HEAD | jq -R .)},
-  metadata: $(git_metadata)
-}" >&3
+export CREDHUB_SERVER=$(jq -r '.source.server // ""' < $payload)
+export CREDHUB_CLIENT=$(jq -r '.source.client_name // ""' < $payload)
+export CREDHUB_SECRET=$(jq -r '.source.client_secret // ""' < $payload)
+
+ca_cert=$(jq -r '.source.ca_cert // ""' < $payload)
+if [[ "${ca_cert}" != "" ]]; then
+    export CREDHUB_CA_CERT="${ca_cert}"
+fi
+
+credhub_path=$(jq -r '.source.path // ""' < $payload)
+
+for cred in $(credhub find -p ${credhub_path%/} -j | jq -r '.credentials[].name'); do
+    if [[ "${cred}" == *"schema"* ]]; then continue; fi
+    credhub get -n ${cred} -j | jq -c '{(.name | capture("(?<name>[^/]+)$") | .name): .value}'
+done | jq -s 'add' > ${doc}
+
+credhub get -n ${credhub_path%/}/schema -j | jq '.value' > ${schema}
+
+ajv --errors=text --all-errors --messages=true -d ${doc} -s ${schema} 2>&1 | \
+    sed "s@${doc}@${credhub_path%/}/@g" | \
+    sed "s@data@${credhub_path%/}/@g" | \
+    sed "s@, @\n@g" | \
+    sed "s@/\.@/@g"
+
+jq --argjson schema "$(cat ${schema})" \
+   --arg version $(md5sum ${schema} | cut -d' ' -f1) \
+   -n '{ version: $version, metadata: { schema: $schema }}' >&3

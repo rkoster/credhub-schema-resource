@@ -1,0 +1,21 @@
+credentials:
+- name: /ci/test/schema
+  type: json
+  value:
+    properties:
+      instances:
+        type: integer
+      password:
+        minLength: 3
+        type: string
+    required:
+    - password
+    - instances
+
+- name: /ci/test/password
+  type: value
+  value: fo
+- name: /ci/test/json
+  type: json
+  value:
+    foo: bar
