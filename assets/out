@@ -28,7 +28,7 @@ if [[ "${ca_cert}" != "" ]]; then
     export CREDHUB_CA_CERT="${ca_cert}"
 fi
 
-credhub_path=$(jq -r '.source.path // ""' < $payload)
+credhub_path=$(jq -r '.source.path // "/"' < $payload)
 
 for cred in $(credhub find -p ${credhub_path%/} -j | jq -r '.credentials[].name'); do
     if [[ "${cred}" == *"schema"* ]]; then continue; fi
