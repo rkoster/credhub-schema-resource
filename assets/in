@@ -1,0 +1,24 @@
+#!/bin/bash
+
+set -e
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+destination=$1
+
+if [ -z "$destination" ]; then
+  echo "usage: $0 <path/to/destination>" >&2
+  exit 1
+fi
+
+payload=$(mktemp $TMPDIR/credhub-schema-resource-request.XXXXXX)
+
+cat > $payload <&0
+
+jq -n "{
+  version: {ref: $(echo $return_ref | jq -R .)},
+  metadata: $(git_metadata)
+}" >&3
+
+
