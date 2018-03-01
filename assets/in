@@ -1,9 +1,12 @@
 #!/bin/bash
 
 set -e
+set -o pipefail
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
 
 destination=$1
 
@@ -12,13 +15,55 @@ if [ -z "$destination" ]; then
   exit 1
 fi
 
-payload=$(mktemp $TMPDIR/credhub-schema-resource-request.XXXXXX)
-
 cat > $payload <&0
 
-jq -n "{
-  version: {ref: $(echo $return_ref | jq -R .)},
-  metadata: $(git_metadata)
-}" >&3
+configure_credhub
 
+# Build a json document to validate from given credhub_path
+# strings will be cast to numbers if possible
+# credhub:
+# {
+#     "id": "7127236d-aabe-466a-a7d5-5df0b4200122",
+#     "name": "/ci/test/password",
+#     "type": "value",
+#     "value": "foo",
+#     "version_created_at": "2018-03-01T10:26:55Z"
+# }
+# result:
+# { "password": "foo" }
+for cred in $(credhub find -p $(credhub_path) -j | jq -r '.credentials[].name'); do
+    if [[ "${cred}" == *"schema"* ]]; then continue; fi
+    credhub get -n ${cred} -j | \
+        jq -c '{(.name | capture("(?<name>[^/]+)$") | .name): (.value | try tonumber catch .)}'
+done | jq -s 'add' > ${doc}
 
+credhub_get_schema > ${schema}
+
+# use ajv to validate doc against given json schema
+# replace paths in errors with credhub_path to make output more familiar to credhub users
+# also use newlines instead of ',' for readability
+ajv --all-errors --use-defaults --errors=text --messages=true \
+    -d ${doc} -s ${schema} 2>&1 | \
+    sed "s@${doc}@$(credhub_path)/@g" | \
+    sed "s@data@$(credhub_path)/@g" | \
+    sed "s@, @\n@g" | \
+    sed "s@/\.@/@g"
+
+# get a json list of required changes to the doc based on defaults
+ajv --all-errors --use-defaults --changes=json \
+    -d ${doc} -s ${schema} | grep -v -E 'valid|changes:' > ${changes}
+
+# propagate defaults to credhub
+# values starting with '{' will be of json type
+# rest will be of type value
+if ! grep -q "\[" ${changes}; then echo "[]" > ${changes}; fi
+for change in $(cat ${changes} | jq -c '.[]'); do
+    name="${credhub_path%/}$(echo ${change} | jq -r '.path')"
+    value="$(echo ${change} | jq -r '.value')"
+    type="value"
+    if [[ "${value}" == "{"* ]]; then type="json"; fi
+    credhub set --no-overwrite --name="${name}" --type="${type}" --value="${value}" > /dev/null
+    echo "${name} default ${value}"
+done
+
+version >&3

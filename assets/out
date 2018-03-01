@@ -1,11 +1,12 @@
 #!/bin/bash
-# vim: set ft=sh
 
 set -e
 set -o pipefail
 
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
+
+source $(dirname $0)/common.sh
 
 source=$1
 
@@ -14,74 +15,13 @@ if [ -z "$source" ]; then
   exit 1
 fi
 
-payload=$(mktemp $TMPDIR/credhub-schema-resource-request.XXXXXX)
-schema=$(mktemp $TMPDIR/credhub-schema-resource-schema.XXXXXX)
-doc=$(mktemp $TMPDIR/credhub-schema-resource-doc.XXXXXX)
-changes=$(mktemp $TMPDIR/credhub-schema-resource-changes.XXXXXX)
-errors=$(mktemp $TMPDIR/credhub-schema-resource-errors.XXXXXX)
-
 cat > $payload <&0
 
-export CREDHUB_SERVER=$(jq -r '.source.server // ""' < $payload)
-export CREDHUB_CLIENT=$(jq -r '.source.client_name // ""' < $payload)
-export CREDHUB_SECRET=$(jq -r '.source.client_secret // ""' < $payload)
+configure_credhub
 
-ca_cert=$(jq -r '.source.ca_cert // ""' < $payload)
-if [[ "${ca_cert}" != "" ]]; then
-    export CREDHUB_CA_CERT="${ca_cert}"
-fi
+schema_file=$(jq -r '.params.schema_file' < $payload)
+credhub set --name=$(schema_path) --type=json --value="$(cat ${schema_file})" > /dev/null
 
-credhub_path=$(jq -r '.source.path // "/"' < $payload)
+credhub_get_schema > ${schema}
 
-# Build a json document to validate from given credhub_path
-# strings will be cast to numbers if possible
-# credhub:
-# {
-#     "id": "7127236d-aabe-466a-a7d5-5df0b4200122",
-#     "name": "/ci/test/password",
-#     "type": "value",
-#     "value": "foo",
-#     "version_created_at": "2018-03-01T10:26:55Z"
-# }
-# result:
-# { "password": "foo" }
-for cred in $(credhub find -p ${credhub_path%/} -j | jq -r '.credentials[].name'); do
-    if [[ "${cred}" == *"schema"* ]]; then continue; fi
-    credhub get -n ${cred} -j | \
-        jq -c '{(.name | capture("(?<name>[^/]+)$") | .name): (.value | try tonumber catch .)}'
-done | jq -s 'add' > ${doc}
-
-# get json schema for given path from credhub
-# which is expected to be stored in credhub under path/schema
-credhub get -n ${credhub_path%/}/schema -j | jq '.value' > ${schema}
-
-# use ajv to validate doc against given json schema
-# replace paths in errors with credhub_path to make output more familiar to credhub users
-# also use newlines instead of ',' for readability
-ajv --all-errors --use-defaults --errors=text --messages=true \
-    -d ${doc} -s ${schema} 2>&1 | \
-    sed "s@${doc}@${credhub_path%/}/@g" | \
-    sed "s@data@${credhub_path%/}/@g" | \
-    sed "s@, @\n@g" | \
-    sed "s@/\.@/@g"
-
-# get a json list of required changes to the doc based on defaults
-ajv --all-errors --use-defaults --changes=json \
-    -d ${doc} -s ${schema} | grep -v -E 'valid|changes:' > ${changes}
-
-# propagate defaults to credhub
-# values starting with '{' will be of json type
-# rest will be of type value
-if ! grep -q "\[" ${changes}; then echo "[]" > ${changes}; fi
-for change in $(cat ${changes} | jq -c '.[]'); do
-    name="${credhub_path%/}$(echo ${change} | jq -r '.path')"
-    value="$(echo ${change} | jq -r '.value')"
-    type="value"
-    if [[ "${value}" == "{"* ]]; then type="json"; fi
-    credhub set --no-overwrite --name="${name}" --type="${type}" --value="${value}" > /dev/null
-    echo "${name} default ${value}"
-done
-
-jq --argjson schema "$(cat ${schema})" \
-   --arg version $(md5sum ${schema} | cut -d' ' -f1) \
-   -n '{ version: $version, metadata: { schema: $schema }}' >&3
+version >&3

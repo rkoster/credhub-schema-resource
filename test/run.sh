@@ -18,4 +18,4 @@ fi
 
 docker build . -t credhub-schema-resource:dev > /dev/null
 
-cat config.json | docker run -i credhub-schema-resource:dev /opt/resource/out /tmp/foo
+cat config.json | docker run -i credhub-schema-resource:dev /opt/resource/in /tmp/foo

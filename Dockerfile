@@ -14,6 +14,7 @@ RUN curl -sL https://deb.nodesource.com/setup_9.x | bash - && \
 
 RUN npm install -g ajv-cli
 
-COPY assets/check /opt/resource/check
-COPY assets/in    /opt/resource/in
-COPY assets/out   /opt/resource/out
+COPY assets/check     /opt/resource/check
+COPY assets/in        /opt/resource/in
+COPY assets/out       /opt/resource/out
+COPY assets/common.sh /opt/resource/common.sh
