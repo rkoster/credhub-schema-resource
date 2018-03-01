@@ -5,16 +5,17 @@ credentials:
     properties:
       instances:
         type: integer
+        default: 1
       password:
-        minLength: 3
         type: string
+        minLength: 3
     required:
     - password
     - instances
 
 - name: /ci/test/password
   type: value
-  value: fo
+  value: foo
 - name: /ci/test/json
   type: json
   value:
