@@ -20,7 +20,7 @@ cat > $payload <&0
 configure_credhub
 
 schema_file=$(jq -r '.params.schema_file' < $payload)
-credhub set --name=$(schema_path) --type=json --value="$(cat ${schema_file})" > /dev/null
+credhub set --name=$(schema_path) --type=json --value="$(spruce json ${source}/${schema_file})" > /dev/null
 
 credhub_get_schema > ${schema}
 

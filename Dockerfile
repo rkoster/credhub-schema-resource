@@ -7,6 +7,7 @@ RUN wget -q -O - https://raw.githubusercontent.com/starkandwayne/homebrew-cf/mas
     && echo "deb http://apt.starkandwayne.com stable main" | tee /etc/apt/sources.list.d/starkandwayne.list \
     && apt-get update && apt-get install -y \
        jq \
+       spruce \
        credhub-cli
 
 RUN curl -sL https://deb.nodesource.com/setup_9.x | bash - && \
