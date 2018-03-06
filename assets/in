@@ -34,8 +34,12 @@ configure_credhub
 for cred in $(credhub find -p $(credhub_path) -j | jq -r '.credentials[].name'); do
     if [[ "${cred}" == *"schema"* ]]; then continue; fi
     credhub get -n ${cred} -j | \
-        jq -c '{(.name | capture("(?<name>[^/]+)$") | .name): (.value | try tonumber catch .)}'
+        jq -c '{(.name | capture("(?<name>[^/]+)$") | .name): (.value | tonumber? // .)}'
 done | jq -s 'add' > ${doc}
+
+if [[ "$(cat ${doc})" == "null" ]]; then
+    echo "{}" > ${doc}
+fi
 
 credhub_get_schema > ${schema}
 
@@ -58,7 +62,7 @@ ajv --all-errors --use-defaults --changes=json \
 # rest will be of type value
 if ! grep -q "\[" ${changes}; then echo "[]" > ${changes}; fi
 for change in $(cat ${changes} | jq -c '.[]'); do
-    name="${credhub_path%/}$(echo ${change} | jq -r '.path')"
+    name="$(credhub_path)$(echo ${change} | jq -r '.path')"
     value="$(echo ${change} | jq -r '.value')"
     type="value"
     if [[ "${value}" == "{"* ]]; then type="json"; fi

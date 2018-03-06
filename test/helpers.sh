@@ -29,10 +29,14 @@ _credhub() {
     export CREDHUB_SERVER=${credhub_url}
     export CREDHUB_CA_CERT=$(ca_cert)
     credhub login -u credhub -p password > /dev/null
-    credhub "$@" > /dev/null
+    if [[ "$@" == *"-j"* ]]; then
+        credhub "$@"
+    else
+        credhub "$@" > /dev/null
+    fi
 }
 
-config() {
+source_config() {
     jq -n -c \
        --arg path "$1" \
        --arg url "${credhub_url}" \
@@ -54,6 +58,15 @@ run() {
     echo ""
 }
 
-check_path() {
-    config $1 | ${resource_dir}/check | tee /dev/stderr
+_check() {
+    source_config $1 | ${resource_dir}/check | tee /dev/stderr
+}
+
+_put() {
+    source_config $1 | jq -c --arg file $2 '.params.schema_file = $file' | \
+        ${resource_dir}/out ${TMPDIR} | tee /dev/stderr
+}
+
+_get() {
+    source_config $1 | ${resource_dir}/in ${TMPDIR} | tee /dev/stderr
 }

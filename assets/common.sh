@@ -31,7 +31,7 @@ credhub_get_schema() {
     if credhub find -p "$(credhub_path)" 2>&1| grep -q $(schema_path); then
         credhub get --name $(schema_path) -j | jq -S '.value'
     else
-        echo "{}"
+        echo '{}'
     fi
 }
 
