@@ -1,0 +1,8 @@
+version: '3.3'
+
+services:
+  credhub:
+    build: ./test/credhub/
+    command: /credhub/start_server.sh -Djdk.tls.ephemeralDHKeySize=2048
+    ports:
+    - "9000:9000"

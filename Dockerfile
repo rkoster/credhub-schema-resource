@@ -1,4 +1,4 @@
-FROM ubuntu
+FROM ubuntu AS resource
 
 RUN apt-get update && \
     apt-get install -yy wget curl
@@ -19,3 +19,20 @@ COPY assets/check     /opt/resource/check
 COPY assets/in        /opt/resource/in
 COPY assets/out       /opt/resource/out
 COPY assets/common.sh /opt/resource/common.sh
+
+FROM resource AS test
+RUN apt-get update && \
+    apt-get install -y openjdk-8-jdk netcat
+
+ADD test/credhub/src/ /credhub
+WORKDIR /credhub
+ENV VERSION 100.0.1
+ENV GOPATH /
+RUN ./setup_dev_mtls.sh
+RUN ./gradlew --no-daemon assemble
+
+ADD test/ /tests
+WORKDIR /tests
+RUN ./start_credhub.sh && ./all.sh
+
+FROM resource

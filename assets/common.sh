@@ -15,13 +15,24 @@ configure_credhub() {
     if [[ "${ca_cert}" != "" ]]; then
         export CREDHUB_CA_CERT="${ca_cert}"
     fi
+
+    username=$(jq -r '.source.username // ""' < $payload)
+    password=$(jq -r '.source.password // ""' < $payload)
+
+    if [[ "${username}" != "" ]]; then
+      credhub login -u ${username} -p ${password} > /dev/null
+    fi
 }
 
 # get json schema for given path from credhub
 # which is expected to be stored in credhub under path/schema
 # also sort the keys for schema versioning
 credhub_get_schema() {
-    credhub get --name $(schema_path) -j | jq -S '.value'
+    if credhub find -p "$(credhub_path)" 2>&1| grep -q $(schema_path); then
+        credhub get --name $(schema_path) -j | jq -S '.value'
+    else
+        echo "{}"
+    fi
 }
 
 credhub_path() {
@@ -36,5 +47,5 @@ schema_path() {
 version() {
     jq --argjson schema "$(cat ${schema})" \
        --arg version $(md5sum ${schema} | cut -d' ' -f1) \
-       -n '{ version: $version, metadata: { schema: $schema }}'
+       -c -n '{ version: $version, metadata: { schema: $schema }}'
 }
