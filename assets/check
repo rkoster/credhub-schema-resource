@@ -13,4 +13,4 @@ cat > $payload <&0
 configure_credhub
 credhub_get_schema > ${schema}
 
-version >&3
+version | jq -c -s '.' >&3
