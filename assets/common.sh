@@ -29,7 +29,7 @@ configure_credhub() {
 # also sort the keys for schema versioning
 credhub_get_schema() {
     if credhub find -p "$(credhub_path)" 2>&1| grep -q $(schema_path); then
-        credhub get --name $(schema_path) -j | jq -S '.value'
+        credhub get --name $(schema_path) -j | jq -S -c '.value'
     else
         echo '{}'
     fi
@@ -45,7 +45,6 @@ schema_path() {
 }
 
 version() {
-    jq --argjson schema "$(cat ${schema})" \
-       --arg version $(md5sum ${schema} | cut -d' ' -f1) \
-       -c -n '{ version: { md5: $version }, metadata: { schema: $schema }}'
+    jq --arg version $(md5sum ${schema} | cut -d' ' -f1) \
+       -c -n '{ version: { md5: $version } }'
 }
