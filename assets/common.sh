@@ -47,5 +47,5 @@ schema_path() {
 version() {
     jq --argjson schema "$(cat ${schema})" \
        --arg version $(md5sum ${schema} | cut -d' ' -f1) \
-       -c -n '{ version: $version, metadata: { schema: $schema }}'
+       -c -n '{ version: { md5: $version }, metadata: { schema: $schema }}'
 }

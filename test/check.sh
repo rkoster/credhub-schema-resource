@@ -7,7 +7,7 @@ source $(dirname $0)/helpers.sh
 it_can_check_empty_path() {
     _check "/empty_path" | jq -e '
     . == {
-      version: "8a80554c91d9fca8acb82f023de02f11",
+      version: { md5: "8a80554c91d9fca8acb82f023de02f11" },
       metadata: { schema: {} }
     }
   '
@@ -18,7 +18,7 @@ it_can_check_schema() {
     _credhub set -n /check_schema/schema -t json -v "${schema}"
     _check "/check_schema" | jq -e --argjson schema "${schema}" '
     . == {
-      version: "2fbda529df636fb72e8bb8e288cf9b8a",
+      version: { md5: "2fbda529df636fb72e8bb8e288cf9b8a" },
       metadata: { schema: $schema }
     }
     '
