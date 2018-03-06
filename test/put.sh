@@ -20,7 +20,7 @@ it_can_put_json_schema() {
     schema=$(cat ${TMPDIR}/schema.json)
     _put "/put_yaml_schema" "schema.json" | jq -e --argjson schema "${schema}" '
     . == {
-      version: "e828be2b9750848cfcd3f7599843aa27",
+      version: "728353af32c9c78ac07b0b6b1c8f8518",
       metadata: { schema: $schema }
     }
     '
