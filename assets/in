@@ -66,7 +66,7 @@ for change in $(cat ${changes} | jq -c '.[]'); do
     value="$(echo ${change} | jq -r '.value')"
     type="value"
     if [[ "${value}" == "{"* ]]; then type="json"; fi
-    credhub set --no-overwrite --name="${name}" --type="${type}" --value="${value}" > /dev/null
+    credhub set --name="${name}" --type="${type}" --value="${value}" > /dev/null
     echo "${name} default ${value}"
 done
 
