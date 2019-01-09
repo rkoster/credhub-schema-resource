@@ -24,6 +24,7 @@ FROM resource AS test
 RUN apt-get update && \
     apt-get install -y openjdk-8-jdk netcat
 
+#
 # ADD test/credhub/src/ /credhub
 # WORKDIR /credhub
 # ENV VERSION 100.0.1
